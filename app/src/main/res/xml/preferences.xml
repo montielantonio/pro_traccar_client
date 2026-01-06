@@ -29,7 +29,7 @@
         android:title="@string/settings_accuracy_title" />
 
     <EditTextPreference
-        android:defaultValue="300"
+        android:defaultValue="10"
         android:key="interval"
         android:inputType="number"
         android:summary="@string/settings_interval_summary"

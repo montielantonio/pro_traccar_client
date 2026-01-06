@@ -45,21 +45,40 @@ class TrackingService : Service() {
         val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
         try {
             startForeground(NOTIFICATION_ID, createNotification(this))
-            Log.i(TAG, "service create")
+            Log.i(TAG, "=== TrackingService onCreate ===")
             sendBroadcast(Intent(ACTION_STARTED).setPackage(packageName))
             StatusActivity.addMessage(getString(R.string.status_service_create))
 
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            // Check location permission
+            val hasLocationPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            Log.i(TAG, "Location permission granted: $hasLocationPermission")
+            
+            if (hasLocationPermission) {
                 if (sharedPreferences.getBoolean(MainFragment.KEY_WAKELOCK, true)) {
                     val powerManager = getSystemService(POWER_SERVICE) as PowerManager
                     wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, javaClass.name)
                     wakeLock?.acquire()
+                    Log.d(TAG, "Wake lock acquired")
                 }
+                
+                // Log configuration
+                val deviceId = sharedPreferences.getString(MainFragment.KEY_DEVICE, "undefined")
+                val serverUrl = sharedPreferences.getString(MainFragment.KEY_URL, "undefined")
+                val interval = sharedPreferences.getString(MainFragment.KEY_INTERVAL, "10")
+                Log.i(TAG, "Configuration:")
+                Log.i(TAG, "  Device ID: $deviceId")
+                Log.i(TAG, "  Server URL: $serverUrl")
+                Log.i(TAG, "  Interval: $interval seconds")
+                
                 trackingController = TrackingController(this)
                 trackingController?.start()
+                Log.i(TAG, "TrackingController started")
+            } else {
+                Log.e(TAG, "Location permission NOT granted - service cannot start")
+                StatusActivity.addMessage("Error: Location permission required")
             }
         } catch (e: RuntimeException) {
-            Log.w(TAG, e)
+            Log.e(TAG, "Error in onCreate", e)
             sharedPreferences.edit().putBoolean(MainFragment.KEY_STATUS, false).apply()
             stopSelf()
         }

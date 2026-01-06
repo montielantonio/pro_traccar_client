@@ -26,26 +26,63 @@ import java.net.URL
 object RequestManager {
 
     private const val TIMEOUT = 15 * 1000
+    private const val TAG = "RequestManager"
 
     fun sendRequest(request: String?): Boolean {
+        if (request == null) {
+            Log.e(TAG, "Request URL is null")
+            return false
+        }
+        
         var inputStream: InputStream? = null
+        var connection: HttpURLConnection? = null
         return try {
             val url = URL(request)
-            val connection = url.openConnection() as HttpURLConnection
+            Log.i(TAG, "=== Sending HTTP GET request ===")
+            Log.i(TAG, "URL: $request")
+            connection = url.openConnection() as HttpURLConnection
             connection.readTimeout = TIMEOUT
             connection.connectTimeout = TIMEOUT
-            connection.requestMethod = "POST"
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("User-Agent", "Traccar-Client-Android")
+            Log.d(TAG, "Connecting to server...")
             connection.connect()
-            inputStream = connection.inputStream
-            while (inputStream.read() != -1) {}
-            true
+            val responseCode = connection.responseCode
+            Log.i(TAG, "Response code: $responseCode")
+            
+            if (responseCode in 200..299) {
+                inputStream = connection.inputStream
+                val response = inputStream.bufferedReader().use { it.readText() }
+                Log.i(TAG, "Request successful! Response: $response")
+                true
+            } else {
+                val errorStream = connection.errorStream
+                val errorResponse = errorStream?.bufferedReader()?.use { it.readText() } ?: "No error body"
+                Log.w(TAG, "Request failed with response code: $responseCode, Error: $errorResponse")
+                false
+            }
         } catch (error: IOException) {
+            Log.e(TAG, "=== Request FAILED ===")
+            Log.e(TAG, "Error type: ${error.javaClass.simpleName}")
+            Log.e(TAG, "Error message: ${error.message}")
+            Log.e(TAG, "Full error:", error)
+            false
+        } catch (error: Exception) {
+            Log.e(TAG, "=== Unexpected error ===")
+            Log.e(TAG, "Error type: ${error.javaClass.simpleName}")
+            Log.e(TAG, "Error message: ${error.message}")
+            Log.e(TAG, "Full error:", error)
             false
         } finally {
             try {
                 inputStream?.close()
-            } catch (secondError: IOException) {
-                Log.w(RequestManager::class.java.simpleName, secondError)
+            } catch (e: IOException) {
+                Log.w(TAG, "Error closing input stream", e)
+            }
+            try {
+                connection?.disconnect()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error disconnecting", e)
             }
         }
     }

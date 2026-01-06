@@ -33,8 +33,15 @@ class NetworkManager(private val context: Context, private val handler: NetworkH
 
     val isOnline: Boolean
         get() {
-            val activeNetwork = connectivityManager.activeNetworkInfo
-            return activeNetwork != null && activeNetwork.isConnectedOrConnecting
+            return try {
+                val activeNetwork = connectivityManager.activeNetworkInfo
+                val online = activeNetwork != null && activeNetwork.isConnectedOrConnecting
+                Log.d(TAG, "Network status check: online=$online, networkInfo=$activeNetwork")
+                online
+            } catch (e: Exception) {
+                Log.e(TAG, "Error checking network status", e)
+                false
+            }
         }
 
     fun start() {
@@ -49,9 +56,9 @@ class NetworkManager(private val context: Context, private val handler: NetworkH
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ConnectivityManager.CONNECTIVITY_ACTION && handler != null) {
-            val isOnline = isOnline
-            Log.i(TAG, "network " + if (isOnline) "on" else "off")
-            handler.onNetworkUpdate(isOnline)
+            val online = isOnline
+            Log.i(TAG, "=== Network status changed: ${if (online) "ONLINE" else "OFFLINE"} ===")
+            handler.onNetworkUpdate(online)
         }
     }
 

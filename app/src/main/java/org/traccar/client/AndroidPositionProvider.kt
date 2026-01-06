@@ -22,6 +22,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
+import android.util.Log
 
 class AndroidPositionProvider(context: Context, listener: PositionListener) : PositionProvider(context, listener), LocationListener {
 
@@ -31,9 +32,13 @@ class AndroidPositionProvider(context: Context, listener: PositionListener) : Po
     @SuppressLint("MissingPermission")
     override fun startUpdates() {
         try {
+            val updateInterval = if (distance > 0 || angle > 0) MINIMUM_INTERVAL else interval
+            Log.d(TAG, "Starting location updates: provider=$provider, interval=$updateInterval, distance=$distance, angle=$angle")
             locationManager.requestLocationUpdates(
-                    provider, if (distance > 0 || angle > 0) MINIMUM_INTERVAL else interval, 0f, this)
+                    provider, updateInterval, 0f, this)
+            Log.d(TAG, "Location updates requested successfully")
         } catch (e: RuntimeException) {
+            Log.e(TAG, "Error starting location updates", e)
             listener.onPositionError(e)
         }
     }
@@ -65,6 +70,7 @@ class AndroidPositionProvider(context: Context, listener: PositionListener) : Po
     }
 
     override fun onLocationChanged(location: Location) {
+        Log.d(TAG, "onLocationChanged called: provider=${location.provider}, lat=${location.latitude}, lon=${location.longitude}")
         processLocation(location)
     }
 
@@ -78,6 +84,10 @@ class AndroidPositionProvider(context: Context, listener: PositionListener) : Po
             "low"  -> LocationManager.PASSIVE_PROVIDER
             else   -> LocationManager.NETWORK_PROVIDER
         }
+    }
+
+    companion object {
+        private val TAG = AndroidPositionProvider::class.java.simpleName
     }
 
 }

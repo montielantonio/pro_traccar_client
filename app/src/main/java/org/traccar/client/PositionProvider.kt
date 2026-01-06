@@ -37,27 +37,58 @@ abstract class PositionProvider(
 
     protected var preferences: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
     protected var deviceId = preferences.getString(MainFragment.KEY_DEVICE, "undefined")!!
-    protected var interval = preferences.getString(MainFragment.KEY_INTERVAL, "600")!!.toLong() * 1000
+    protected var interval = preferences.getString(MainFragment.KEY_INTERVAL, "10")!!.toLong() * 1000
     protected var distance: Double = preferences.getString(MainFragment.KEY_DISTANCE, "0")!!.toInt().toDouble()
     protected var angle: Double = preferences.getString(MainFragment.KEY_ANGLE, "0")!!.toInt().toDouble()
     private var lastLocation: Location? = null
+    private var lastSentTime: Long = 0
+    private var lastKnownLocation: Location? = null
 
     abstract fun startUpdates()
     abstract fun stopUpdates()
     abstract fun requestSingleLocation()
+    
+    // Method to get last known location for periodic sending
+    fun getLastKnownLocation(): Location? = lastKnownLocation
 
     protected fun processLocation(location: Location?) {
+        val currentTime = System.currentTimeMillis()
         val lastLocation = this.lastLocation
-        if (location != null &&
-            (lastLocation == null || location.time - lastLocation.time >= interval || distance > 0
-                    && location.distanceTo(lastLocation) >= distance || angle > 0
-                    && abs(location.bearing - lastLocation.bearing) >= angle)
-        ) {
-            Log.i(TAG, "location new")
-            this.lastLocation = location
-            listener.onPositionUpdate(Position(deviceId, location, getBatteryStatus(context)))
+        
+        if (location != null) {
+            Log.d(TAG, "Location received: lat=${location.latitude}, lon=${location.longitude}, accuracy=${location.accuracy}, time=${location.time}")
+            lastKnownLocation = location
+        }
+        
+        // Check if we should send update based on time interval
+        val timeSinceLastSend = currentTime - lastSentTime
+        val shouldSendByTime = lastSentTime == 0L || timeSinceLastSend >= interval
+        
+        // Use last known location if current location is null but we need to send by time
+        val locationToUse = location ?: if (shouldSendByTime) lastKnownLocation else null
+        
+        // Check if we should send based on location change (only if distance/angle thresholds are set)
+        val shouldSendByLocation = location != null && (
+            lastLocation == null || 
+            (distance > 0 && location.distanceTo(lastLocation) >= distance) || 
+            (angle > 0 && abs(location.bearing - lastLocation.bearing) >= angle)
+        )
+        
+        // Always send if time interval has passed, regardless of location change
+        // Also send if location changed significantly (when distance/angle thresholds are set)
+        if (locationToUse != null && (shouldSendByTime || shouldSendByLocation)) {
+            Log.i(TAG, "location new - sending position update (timeSinceLastSend=${timeSinceLastSend}ms, interval=${interval}ms, usingLastKnown=${location == null})")
+            if (location != null) {
+                this.lastLocation = location
+            }
+            this.lastSentTime = currentTime
+            listener.onPositionUpdate(Position(deviceId, locationToUse, getBatteryStatus(context)))
         } else {
-            Log.i(TAG, if (location != null) "location ignored" else "location nil")
+            if (location != null) {
+                Log.d(TAG, "location ignored - criteria not met (timeSinceLastSend=${timeSinceLastSend}ms, distance=${if (lastLocation != null) location.distanceTo(lastLocation) else 0})")
+            } else if (shouldSendByTime && lastKnownLocation == null) {
+                Log.w(TAG, "location nil - no location available yet, waiting for first location")
+            }
         }
     }
 
