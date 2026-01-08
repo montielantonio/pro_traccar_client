@@ -226,7 +226,7 @@ class TrackingController(private val context: Context) : PositionListener, Netwo
     private fun send(position: Position) {
         log("send", position)
         val request = formatRequest(url, position)
-        Log.i(TAG, "=== Preparing to send position ===")
+        Log.i(TAG, "=== Preparing to send position via HTTP GET ===")
         Log.i(TAG, "Formatted request URL: $request")
         Log.i(TAG, "Device ID: ${position.deviceId}")
         Log.i(TAG, "Lat: ${position.latitude}, Lon: ${position.longitude}")

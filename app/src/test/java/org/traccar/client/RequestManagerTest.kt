@@ -13,10 +13,13 @@ import org.traccar.client.RequestManager.sendRequest
 @RunWith(RobolectricTestRunner::class)
 class RequestManagerTest {
 
-    @Ignore("Not a real unit test")
+    @Ignore("Not a real unit test - requires network connection")
     @Test
     fun testSendRequest() {
-        Assert.assertTrue(sendRequest("http://www.google.com"))
+        // This test requires a real server connection
+        // Format: sendRequest(requestUrl)
+        val requestUrl = "http://track.gpslinkusa.com:5055/?id=PHONE001&lat=37.421998&lon=-122.084&speed=0&bearing=0"
+        Assert.assertFalse(sendRequest("http://invalid-server-test:5055/?id=test&lat=0&lon=0&speed=0&bearing=0"))
     }
 
 }

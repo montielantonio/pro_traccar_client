@@ -34,12 +34,27 @@ object RequestManager {
             return false
         }
         
+        // Validate URL uses HTTP (not HTTPS) and port 5055
+        val urlLower = request.lowercase()
+        if (urlLower.startsWith("https://")) {
+            Log.e(TAG, "ERROR: URL uses HTTPS, but must use HTTP! URL: $request")
+            Log.e(TAG, "Please change URL to use http:// (not https://) and include :5055 port")
+            return false
+        }
+        if (!urlLower.contains(":5055")) {
+            Log.w(TAG, "WARNING: URL does not include port 5055. URL: $request")
+            Log.w(TAG, "Expected format: http://track.gpslinkusa.com:5055/...")
+        }
+        
         var inputStream: InputStream? = null
         var connection: HttpURLConnection? = null
         return try {
             val url = URL(request)
             Log.i(TAG, "=== Sending HTTP GET request ===")
-            Log.i(TAG, "URL: $request")
+            Log.i(TAG, "Protocol: ${url.protocol}")
+            Log.i(TAG, "Host: ${url.host}")
+            Log.i(TAG, "Port: ${url.port}")
+            Log.i(TAG, "Full URL: $request")
             connection = url.openConnection() as HttpURLConnection
             connection.readTimeout = TIMEOUT
             connection.connectTimeout = TIMEOUT
