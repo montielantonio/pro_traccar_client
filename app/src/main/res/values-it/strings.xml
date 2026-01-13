@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <resources>
-  <string name="app_name">Traccar Client</string>
-  <string name="app_logo">Traccar</string>
+  <string name="app_name">GPSLink Client</string>
+  <string name="app_logo">GPSLink Client</string>
   <string name="shortcut_start">Avvia servizio</string>
   <string name="shortcut_stop">Ferma servizio</string>
   <string name="shortcut_sos">Invia SOS</string>

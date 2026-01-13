@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <resources>
-  <string name="app_name">Traccar ক্লায়েন্ট</string>
-  <string name="app_logo">Traccar</string>
+  <string name="app_name">GPSLink Client</string>
+  <string name="app_logo">GPSLink Client</string>
   <string name="settings_id_title">ডিভাইস সনাক্তকারী</string>
   <string name="settings_url_title">সার্ভার URL</string>
   <string name="settings_url_summary">ট্র্যাকিং সার্ভার URL</string>

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <resources>
-  <string name="app_name">Εφαρμογή Traccar</string>
-  <string name="app_logo">Traccar</string>
+  <string name="app_name">GPSLink Client</string>
+  <string name="app_logo">GPSLink Client</string>
   <string name="shortcut_start">Εκκίνηση υπηρεσίας</string>
   <string name="shortcut_stop">Διακοπή υπηρεσίας</string>
   <string name="shortcut_sos">Αποστολή SOS</string>
