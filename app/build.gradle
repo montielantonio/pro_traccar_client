@@ -8,14 +8,30 @@ plugins {
 android {
     compileSdk 35
     defaultConfig {
-        applicationId 'org.traccar.client'
+        applicationId 'com.ynvert.gpslink.client'
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 90
-        versionName '7.9'
+        versionCode 91
+        versionName '7.9.1'
         multiDexEnabled true
     }
     namespace 'org.traccar.client'
+
+    signingConfigs {
+        release {
+            storeFile file('gpslink-release-key.jks')
+            storePassword 'GPSLink@Client1'
+            keyAlias 'gpslink'
+            keyPassword 'GPSLink@Client1'
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
 
     packagingOptions {
         resources {
