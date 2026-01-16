@@ -51,4 +51,8 @@
   <string name="request_background_option">Allow all the time</string>
   <string name="widget_description">Shows the service status</string>
   <string name="widget_label">Status widget</string>
+  <string name="disclosure_title">Location Permission for Real-Time Tracking</string>
+  <string name="disclosure_message">GPSLink Client turns this mobile device into an active GPS tracker. For the service to function correctly, we collect precise location data that is sent encrypted to your private server.\n\nBackground Location: This application collects location data to allow device tracking even when the app is closed or not in use. This ensures that the route history is continuous and that emergency (SOS) functions are always available.\n\nThe data is never shared with third parties or used for advertising.</string>
+  <string name="disclosure_cancel">Cancel</string>
+  <string name="disclosure_accept">Accept and Continue</string>
 </resources>

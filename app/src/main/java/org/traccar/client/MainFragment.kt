@@ -53,6 +53,7 @@ class MainFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListene
     private lateinit var alarmManager: AlarmManager
     private lateinit var alarmIntent: PendingIntent
     private var requestingPermissions: Boolean = false
+    private var pendingDisclosureCheck: Boolean = false
 
     @SuppressLint("UnspecifiedImmutableFlag")
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -98,7 +99,14 @@ class MainFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListene
         alarmIntent = PendingIntent.getBroadcast(activity, 0, originalIntent, flags)
 
         if (sharedPreferences.getBoolean(KEY_STATUS, false)) {
-            startTrackingService(checkPermission = true, initialPermission = false)
+            // Check if disclosure has been accepted before starting service on app start
+            if (sharedPreferences.getBoolean(KEY_DISCLOSURE_ACCEPTED, false)) {
+                startTrackingService(checkPermission = true, initialPermission = false)
+            } else {
+                // Service is enabled but disclosure not accepted - mark for showing dialog in onResume
+                // This handles the case where disclosure was added after service was already enabled
+                pendingDisclosureCheck = true
+            }
         }
     }
 
@@ -143,6 +151,24 @@ class MainFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListene
     override fun onResume() {
         super.onResume()
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
+        
+        // Check if we need to show disclosure dialog (from onCreatePreferences)
+        if (pendingDisclosureCheck && sharedPreferences.getBoolean(KEY_STATUS, false) 
+            && !sharedPreferences.getBoolean(KEY_DISCLOSURE_ACCEPTED, false)) {
+            pendingDisclosureCheck = false
+            showLocationDisclosureDialog(
+                onAccepted = {
+                    // User accepted disclosure - IMMEDIATELY request foreground location permission
+                    requestForegroundLocationPermission()
+                },
+                onCancelled = {
+                    // User cancelled, disable service
+                    sharedPreferences.edit().putBoolean(KEY_STATUS, false).apply()
+                    val preference = findPreference<TwoStatePreference>(KEY_STATUS)
+                    preference?.isChecked = false
+                }
+            )
+        }
     }
 
     override fun onPause() {
@@ -164,7 +190,27 @@ class MainFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListene
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         if (key == KEY_STATUS) {
             if (sharedPreferences?.getBoolean(KEY_STATUS, false) == true) {
-                startTrackingService(checkPermission = true, initialPermission = false)
+                // Check if disclosure has been accepted first
+                if (!sharedPreferences.getBoolean(KEY_DISCLOSURE_ACCEPTED, false)) {
+                    // Show disclosure dialog before requesting permissions
+                    // IMPORTANT: Permission request must happen IMMEDIATELY after disclosure acceptance
+                    showLocationDisclosureDialog(
+                        onAccepted = {
+                            // User accepted disclosure - IMMEDIATELY request foreground location permission
+                            // This must happen with no delay or intermediate UI between disclosure and permission request
+                            requestForegroundLocationPermission()
+                        },
+                        onCancelled = {
+                            // User cancelled, turn off the service toggle
+                            sharedPreferences.edit().putBoolean(KEY_STATUS, false).apply()
+                            val preference = findPreference<TwoStatePreference>(KEY_STATUS)
+                            preference?.isChecked = false
+                        }
+                    )
+                } else {
+                    // Disclosure already accepted, proceed normally
+                    startTrackingService(checkPermission = true, initialPermission = false)
+                }
             } else {
                 stopTrackingService()
             }
@@ -200,6 +246,39 @@ class MainFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListene
         findPreference<Preference>(KEY_DEVICE)?.summary = sharedPreferences.getString(KEY_DEVICE, null)
     }
 
+    private fun showLocationDisclosureDialog(onAccepted: () -> Unit, onCancelled: () -> Unit) {
+        val builder = AlertDialog.Builder(requireContext())
+            .setTitle(R.string.disclosure_title)
+            .setMessage(R.string.disclosure_message)
+            .setCancelable(false) // Make it unskippable
+            .setPositiveButton(R.string.disclosure_accept) { dialogInterface, _ ->
+                // Mark disclosure as accepted
+                sharedPreferences.edit().putBoolean(KEY_DISCLOSURE_ACCEPTED, true).apply()
+                // Dismiss dialog first, then IMMEDIATELY proceed to permission request
+                dialogInterface.dismiss()
+                // Call onAccepted immediately after dialog dismisses
+                // This ensures permission request happens immediately after disclosure
+                // No other UI or code execution should happen between disclosure and permission request
+                onAccepted()
+            }
+            .setNegativeButton(R.string.disclosure_cancel) { dialogInterface, _ ->
+                dialogInterface.dismiss()
+                onCancelled()
+            }
+        
+        val dialog = builder.create()
+        // Prevent dismissing by back button
+        dialog.setOnKeyListener { _, keyCode, _ ->
+            if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+                // Block back button - dialog cannot be dismissed this way
+                true
+            } else {
+                false
+            }
+        }
+        dialog.show()
+    }
+
     private fun showBackgroundLocationDialog(context: Context, onSuccess: () -> Unit) {
         val builder = AlertDialog.Builder(context)
         val option = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -211,6 +290,27 @@ class MainFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListene
         builder.setPositiveButton(android.R.string.ok) { _, _ -> onSuccess() }
         builder.setNegativeButton(android.R.string.cancel, null)
         builder.show()
+    }
+
+    /**
+     * Request foreground location permission immediately after disclosure acceptance.
+     * This method directly requests permission without any intermediate steps to ensure
+     * compliance with Google Play's requirement that permission request immediately follows disclosure.
+     */
+    private fun requestForegroundLocationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Check if permission is already granted
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                // Permission already granted, proceed to start service
+                startTrackingService(checkPermission = false, initialPermission = true)
+            } else {
+                // Request permission immediately after disclosure
+                requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), PERMISSIONS_REQUEST_LOCATION)
+            }
+        } else {
+            // Android < 6.0, permission granted at install time
+            startTrackingService(checkPermission = false, initialPermission = true)
+        }
     }
 
     private fun startTrackingService(checkPermission: Boolean, initialPermission: Boolean) {
@@ -300,6 +400,7 @@ class MainFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListene
         const val KEY_STATUS = "status"
         const val KEY_BUFFER = "buffer"
         const val KEY_WAKELOCK = "wakelock"
+        private const val KEY_DISCLOSURE_ACCEPTED = "disclosure_accepted"
         private const val PERMISSIONS_REQUEST_LOCATION = 2
         private const val PERMISSIONS_REQUEST_BACKGROUND_LOCATION = 3
     }
